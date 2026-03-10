@@ -1,0 +1,947 @@
+import { useState, useEffect, useRef } from "react";
+
+// ═══════════════════════════════════════════════════
+// DESIGN TOKENS
+// ═══════════════════════════════════════════════════
+const C = {
+  bg:"#04080f", surface:"#080e1a", card:"#0c1220",
+  border:"#1a2440", borderHover:"#2a3a5c",
+  primary:"#4f8ef7", primaryGlow:"#4f8ef733",
+  success:"#22c55e", successGlow:"#22c55e22",
+  warn:"#f59e0b", danger:"#ef4444",
+  purple:"#a78bfa", purpleGlow:"#a78bfa22",
+  text:"#f0f4ff", textSub:"#8899bb", textMuted:"#4a5a7a",
+  gradient:"linear-gradient(135deg,#4f8ef7,#a78bfa)",
+};
+
+// ═══════════════════════════════════════════════════
+// MOCK AUTH / USER DB (localStorage)
+// ═══════════════════════════════════════════════════
+const DB_KEY  = "jb_users";
+const SES_KEY = "jb_session";
+
+const getDB      = () => { try { return JSON.parse(localStorage.getItem(DB_KEY)||"{}"); } catch { return {}; } };
+const saveDB     = db => localStorage.setItem(DB_KEY, JSON.stringify(db));
+const getSession = () => { try { return JSON.parse(localStorage.getItem(SES_KEY)||"null"); } catch { return null; } };
+const saveSession= u => localStorage.setItem(SES_KEY, JSON.stringify(u));
+const clearSes   = () => localStorage.removeItem(SES_KEY);
+
+const seedDemo = () => {
+  const db = getDB();
+  if (!db["demo@jobbox.in"]) {
+    db["demo@jobbox.in"] = {
+      id:"demo_001", name:"Srinath Avula", email:"demo@jobbox.in",
+      phone:"+91 9876543210", password:"Demo@123",
+      skills:["Selenium","Cypress","Java","JavaScript","API Testing","Postman","TestNG","Page Object Model","JIRA","SQL"],
+      location:"Hyderabad", experience:"Fresher", createdAt:new Date().toISOString(),
+    };
+    saveDB(db);
+  }
+};
+
+// ═══════════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════════
+const JOBS = [
+  { id:1,  title:"Automation Tester",          company:"Infosys",      logo:"IN", location:"Bangalore", exp:"0-1 yr",  platform:"LinkedIn",    ago:"12 min", match:94, comp:"Low",    trust:"Verified Source",  skills:["Selenium","Java","TestNG"],              desc:"Fresher automation tester for QA team. Selenium WebDriver preferred.", applicants:18,  isNew:true  },
+  { id:2,  title:"QA Engineer",                company:"TCS",          logo:"TC", location:"Hyderabad", exp:"Fresher", platform:"Naukri",      ago:"45 min", match:88, comp:"Medium", trust:"Company Website",   skills:["Manual Testing","JIRA","API Testing"],   desc:"Fresher QA Engineer. Manual and automated testing of enterprise apps.", applicants:67,  isNew:true  },
+  { id:3,  title:"SDET Intern → FTE",          company:"BrowserStack", logo:"BS", location:"Mumbai",    exp:"0-1 yr",  platform:"Cutshort",    ago:"2 hrs",  match:97, comp:"Low",    trust:"Verified Source",  skills:["Cypress","JavaScript","API Testing"],    desc:"Freshers passionate about test automation. Cypress and JS required.", applicants:23,  isNew:false },
+  { id:4,  title:"Manual Test Engineer",       company:"Wipro",        logo:"WI", location:"Chennai",   exp:"0-1 yr",  platform:"LinkedIn",    ago:"3 hrs",  match:76, comp:"High",   trust:"Recruiter Post",   skills:["Manual Testing","Test Cases","SQL"],     desc:"Manual testing role. Writing and executing test cases.", applicants:134, isNew:false },
+  { id:5,  title:"QA Automation Fresher",      company:"Zoho",         logo:"ZO", location:"Chennai",   exp:"Fresher", platform:"Company Site",ago:"4 hrs",  match:91, comp:"Low",    trust:"Company Website",  skills:["Selenium","Python","Pytest"],            desc:"Zoho hiring freshers for QA automation. Strong aptitude required.", applicants:45,  isNew:false },
+  { id:6,  title:"Software Test Engineer",     company:"Razorpay",     logo:"RZ", location:"Bangalore", exp:"0-1 yr",  platform:"Instahyre",   ago:"5 hrs",  match:85, comp:"Medium", trust:"Verified Source",  skills:["API Testing","Postman","JavaScript"],    desc:"Test engineers for quality of our payment infrastructure.", applicants:89,  isNew:false },
+  { id:7,  title:"QA Engineer - Automation",   company:"Freshworks",   logo:"FW", location:"Chennai",   exp:"0-1 yr",  platform:"LinkedIn",    ago:"6 hrs",  match:89, comp:"Low",    trust:"Company Website",  skills:["Selenium","Java","Appium"],              desc:"Automation QA engineers for CRM and customer support products.", applicants:31,  isNew:false },
+  { id:8,  title:"Test Analyst Fresher",       company:"Cognizant",    logo:"CG", location:"Pune",      exp:"Fresher", platform:"Naukri",      ago:"8 hrs",  match:72, comp:"High",   trust:"Recruiter Post",   skills:["Manual Testing","Agile","JIRA"],         desc:"Entry-level test analyst. Agile and JIRA preferred.", applicants:201, isNew:false },
+  { id:9,  title:"Cypress Automation Tester",  company:"PhonePe",      logo:"PP", location:"Bangalore", exp:"0-1 yr",  platform:"Wellfound",   ago:"10 hrs", match:96, comp:"Low",    trust:"Verified Source",  skills:["Cypress","JavaScript","Mocha"],          desc:"Cypress automation testers for our fintech QA team.", applicants:27,  isNew:false },
+  { id:10, title:"Junior QA Tester",           company:"Paytm",        logo:"PT", location:"Noida",     exp:"Fresher", platform:"Indeed",      ago:"12 hrs", match:78, comp:"Medium", trust:"Company Website",  skills:["Manual Testing","Mobile Testing","SQL"], desc:"Junior QA testers for our fast-growing quality team.", applicants:112, isNew:false },
+  { id:11, title:"API Test Engineer",          company:"Postman",      logo:"PM", location:"Bangalore", exp:"0-1 yr",  platform:"Company Site",ago:"1 day",  match:93, comp:"Low",    trust:"Company Website",  skills:["API Testing","Postman","REST","JavaScript"],desc:"QA team — deep API testing knowledge required.", applicants:41,  isNew:false },
+  { id:12, title:"Quality Assurance Engineer", company:"Swiggy",       logo:"SW", location:"Bangalore", exp:"0-1 yr",  platform:"LinkedIn",    ago:"1 day",  match:82, comp:"Medium", trust:"Verified Source",  skills:["Selenium","Appium","Java"],              desc:"Ensure quality of our food delivery platform.", applicants:78,  isNew:false },
+  { id:13, title:"Test Automation Engineer",   company:"Amazon India", logo:"AM", location:"Hyderabad", exp:"0-1 yr",  platform:"Company Site",ago:"2 days", match:87, comp:"Medium", trust:"Company Website",  skills:["Java","Selenium","TestNG","Maven"],      desc:"Automation engineers for e-commerce quality assurance.", applicants:156, isNew:false },
+  { id:14, title:"QA Fresher - Mobile",        company:"Flipkart",     logo:"FK", location:"Bangalore", exp:"Fresher", platform:"Naukri",      ago:"2 days", match:80, comp:"High",   trust:"Recruiter Post",   skills:["Appium","Manual Testing","JIRA"],        desc:"QA freshers for mobile app testing on Android and iOS.", applicants:203, isNew:false },
+  { id:15, title:"Performance Test Engineer",  company:"Accenture",    logo:"AC", location:"Hyderabad", exp:"0-1 yr",  platform:"LinkedIn",    ago:"3 days", match:74, comp:"Medium", trust:"Verified Source",  skills:["JMeter","Performance Testing","SQL"],    desc:"Freshers with interest in performance and load testing.", applicants:67,  isNew:false },
+];
+
+const STAGES = ["Saved","Applied","Interview Scheduled","Technical Round","HR Round","Offer Received","Rejected"];
+const STAGE_CLR = { "Saved":"#4f8ef7","Applied":"#22c55e","Interview Scheduled":"#f59e0b","Technical Round":"#a78bfa","HR Round":"#ec4899","Offer Received":"#22c55e","Rejected":"#ef4444" };
+const PLAT_CLR  = { LinkedIn:"#0077b5",Naukri:"#ff7555",Indeed:"#2164f3",Cutshort:"#ff6b6b",Instahyre:"#e879f9",Wellfound:"#1c7ed6","Company Site":"#22c55e" };
+const IQS = {
+  BrowserStack:["Explain Selenium WebDriver architecture.","What is Page Object Model and why use it?","How do you handle dynamic elements in Cypress?","Difference between implicit and explicit waits.","How do you integrate tests with CI/CD pipelines?"],
+  TCS:["What is SDLC vs STLC?","Explain boundary value analysis with an example.","Write test cases for a login page.","Types of software testing.","Explain the bug life cycle."],
+  Razorpay:["How do you test a REST API using Postman?","Difference between GET POST PUT DELETE?","How would you test a payment gateway?","What is contract testing?","Explain API test automation approach."],
+  default:["Difference between verification and validation?","Explain Agile testing methodology.","How to prioritize test cases?","What is regression testing?","Smoke testing vs sanity testing?"],
+};
+const INIT_APPS = [
+  { id:1, jobId:3,  company:"BrowserStack", role:"SDET Intern → FTE",        location:"Mumbai",    platform:"Cutshort",    status:"Interview Scheduled", dateApplied:"2026-03-08", notes:"Technical round on March 12th", interviewDate:"2026-03-12", recruiter:"sarah@browserstack.com" },
+  { id:2, jobId:9,  company:"PhonePe",      role:"Cypress Automation Tester", location:"Bangalore", platform:"Wellfound",   status:"Applied",             dateApplied:"2026-03-09", notes:"Applied through Wellfound",    interviewDate:"",           recruiter:"" },
+  { id:3, jobId:6,  company:"Razorpay",     role:"Software Test Engineer",    location:"Bangalore", platform:"Instahyre",   status:"Technical Round",     dateApplied:"2026-03-07", notes:"Coding round done.",           interviewDate:"2026-03-11", recruiter:"hr@razorpay.com" },
+  { id:4, jobId:5,  company:"Zoho",         role:"QA Automation Fresher",     location:"Chennai",   platform:"Company Site",status:"Rejected",             dateApplied:"2026-03-05", notes:"Did not clear aptitude round", interviewDate:"",           recruiter:"" },
+  { id:5, jobId:11, company:"Postman",      role:"API Test Engineer",         location:"Bangalore", platform:"Company Site",status:"Saved",                dateApplied:"",           notes:"Strong match — apply this week",interviewDate:"",          recruiter:"" },
+];
+
+// ═══════════════════════════════════════════════════
+// TINY UTILS
+// ═══════════════════════════════════════════════════
+const Spin = () => <span style={{ display:"inline-block",width:14,height:14,border:"2px solid #ffffff44",borderTopColor:"#fff",borderRadius:"50%",animation:"jbspin .7s linear infinite" }}/>;
+
+function Toast({ msg, type, onDone }) {
+  useEffect(()=>{ const t=setTimeout(onDone,3200); return()=>clearTimeout(t); },[]);
+  const bg = type==="error"?C.danger:type==="warn"?C.warn:C.success;
+  return <div style={{ position:"fixed",bottom:26,right:26,background:bg,color:"#fff",borderRadius:12,padding:"11px 18px",fontWeight:800,fontSize:14,zIndex:9999,boxShadow:`0 6px 24px ${bg}88`,animation:"jbup .3s ease" }}>{type==="error"?"✗ ":type==="warn"?"⚠ ":"✓ "}{msg}</div>;
+}
+
+const Bdg = ({ children, color=C.primary, sm=false }) => (
+  <span style={{ background:`${color}22`,color,border:`1px solid ${color}44`,borderRadius:5,padding:sm?"1px 6px":"3px 9px",fontSize:sm?10:11,fontWeight:700,display:"inline-flex",alignItems:"center",gap:3,whiteSpace:"nowrap" }}>{children}</span>
+);
+
+const Inp = ({ label, type="text", value, onChange, placeholder, err, icon, hint, onFocusStyle }) => (
+  <div style={{ marginBottom:14 }}>
+    {label && <label style={{ display:"block",fontSize:13,fontWeight:700,color:C.textSub,marginBottom:5 }}>{label}</label>}
+    <div style={{ position:"relative" }}>
+      {icon && <span style={{ position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",fontSize:16,color:C.textMuted,pointerEvents:"none" }}>{icon}</span>}
+      <input type={type} value={value} onChange={onChange} placeholder={placeholder}
+        style={{ width:"100%",background:C.surface,border:`1.5px solid ${err?C.danger:C.border}`,borderRadius:10,padding:`11px ${icon?"14px 11px 38px":"14px"}`,color:C.text,fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:"inherit",transition:"border .15s" }}
+        onFocus={e=>e.target.style.borderColor=err?C.danger:C.primary}
+        onBlur={e=>e.target.style.borderColor=err?C.danger:C.border} />
+    </div>
+    {err   && <span style={{ fontSize:12,color:C.danger,marginTop:3,display:"block" }}>⚠ {err}</span>}
+    {hint&&!err && <span style={{ fontSize:12,color:C.textMuted,marginTop:3,display:"block" }}>{hint}</span>}
+  </div>
+);
+
+function AvatarBox({ name="?",size=36 }) {
+  const pal=["#4f8ef7","#a78bfa","#22c55e","#f59e0b","#ec4899","#ef4444","#14b8a6"];
+  const bg=pal[(name.charCodeAt(0)||0)%pal.length];
+  const ini=name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+  return <div style={{ width:size,height:size,borderRadius:size*.28,background:`linear-gradient(135deg,${bg},${bg}99)`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:size*.36,color:"#fff",flexShrink:0,boxShadow:`0 3px 10px ${bg}44`,letterSpacing:1 }}>{ini}</div>;
+}
+
+function MatchRing({ score }) {
+  const col=score>=90?C.success:score>=75?C.warn:C.danger;
+  const r=17,c=2*Math.PI*r;
+  return (
+    <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:1 }}>
+      <svg width={44} height={44}>
+        <circle cx={22} cy={22} r={r} fill="none" stroke={C.surface} strokeWidth={3.5}/>
+        <circle cx={22} cy={22} r={r} fill="none" stroke={col} strokeWidth={3.5}
+          strokeDasharray={c} strokeDashoffset={c-(score/100)*c} strokeLinecap="round"
+          style={{ transform:"rotate(-90deg)",transformOrigin:"50% 50%",transition:"stroke-dashoffset 1s ease" }}/>
+        <text x={22} y={27} textAnchor="middle" fontSize={11} fontWeight={800} fill={col}>{score}%</text>
+      </svg>
+      <span style={{ fontSize:9,color:C.textMuted,fontWeight:700,letterSpacing:".05em" }}>MATCH</span>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════
+// AUTH SCREEN
+// ═══════════════════════════════════════════════════
+function AuthScreen({ onLogin }) {
+  const [mode,  setMode]  = useState("login");
+  const [busy,  setBusy]  = useState(false);
+  const [toast, setToast] = useState(null);
+  const [showP, setShowP] = useState(false);
+
+  // login
+  const [le,setLe]=useState(""); const [lp,setLp]=useState(""); const [lerr,setLerr]=useState({});
+  // register
+  const [rn,setRn]=useState(""); const [re,setRe]=useState(""); const [rph,setRph]=useState("");
+  const [rp,setRp]=useState(""); const [rc,setRc]=useState(""); const [rl,setRl]=useState("Hyderabad");
+  const [rsk,setRsk]=useState(""); const [rerr,setRerr]=useState({});
+  // phone
+  const [ph,setPh]=useState(""); const [ot,setOt]=useState(""); const [sent,setSent]=useState(false); const [gen,setGen]=useState(""); const [perr,setPerr]=useState({});
+  // forgot
+  const [fe,setFe]=useState(""); const [fok,setFok]=useState(false);
+
+  useEffect(()=>seedDemo(),[]);
+
+  const ok = msg => setToast({msg,type:"success"});
+  const err= msg => setToast({msg,type:"error"});
+
+  const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  const phOk    = p => /^(\+91[\s-]?)?[6-9]\d{9}$/.test(p.replace(/\s/g,""));
+
+  // LOGIN
+  const doLogin = () => {
+    const e={};
+    if (!emailOk(le)) e.email="Enter a valid email";
+    if (!lp) e.pass="Password required";
+    if (Object.keys(e).length){ setLerr(e); return; }
+    setLerr({}); setBusy(true);
+    setTimeout(()=>{
+      const db=getDB(), u=db[le.toLowerCase()];
+      if (!u){ setLerr({email:"No account found. Please register."}); setBusy(false); return; }
+      if (u.password!==lp){ setLerr({pass:"Incorrect password."}); setBusy(false); return; }
+      saveSession(u); ok(`Welcome back, ${u.name.split(" ")[0]}! 👋`);
+      setTimeout(()=>onLogin(u),700); setBusy(false);
+    },900);
+  };
+
+  // REGISTER
+  const doReg = () => {
+    const e={};
+    if (!rn.trim()||rn.length<2) e.name="Enter your full name";
+    if (!emailOk(re)) e.email="Enter a valid email";
+    if (rph&&!phOk(rph)) e.phone="Enter a valid Indian mobile number";
+    if (rp.length<6) e.pass="Min 6 characters";
+    if (rp!==rc) e.conf="Passwords don't match";
+    if (Object.keys(e).length){ setRerr(e); return; }
+    setRerr({}); setBusy(true);
+    setTimeout(()=>{
+      const db=getDB();
+      if (db[re.toLowerCase()]){ setRerr({email:"Email already registered. Please login."}); setBusy(false); return; }
+      const nu={ id:"u_"+Date.now(), name:rn.trim(), email:re.toLowerCase(), phone:rph, password:rp,
+        skills:rsk?rsk.split(",").map(s=>s.trim()).filter(Boolean):["Manual Testing","JIRA"],
+        location:rl, experience:"Fresher", createdAt:new Date().toISOString() };
+      db[re.toLowerCase()]=nu; saveDB(db); saveSession(nu);
+      ok("Account created! Welcome to JobBox 🎉");
+      setTimeout(()=>onLogin(nu),700); setBusy(false);
+    },1000);
+  };
+
+  // GOOGLE
+  const doGoogle = () => {
+    setBusy(true);
+    setTimeout(()=>{
+      const db=getDB(), em="google.user@gmail.com";
+      if (!db[em]) { db[em]={ id:"g_001",name:"Google User",email:em,phone:"",password:"",skills:["Selenium","API Testing"],location:"Bangalore",experience:"Fresher",createdAt:new Date().toISOString() }; saveDB(db); }
+      saveSession(db[em]); ok("Signed in with Google ✓");
+      setTimeout(()=>onLogin(db[em]),600); setBusy(false);
+    },1200);
+  };
+
+  // OTP
+  const sendOtp = () => {
+    if (!phOk(ph)){ setPerr({phone:"Enter a valid 10-digit Indian mobile number"}); return; }
+    setPerr({});
+    const code=String(Math.floor(100000+Math.random()*900000));
+    setGen(code); setSent(true);
+    ok(`OTP sent! Demo code: ${code} 📱`);
+  };
+  const verifyOtp = () => {
+    if (ot!==gen){ setPerr({otp:"Invalid OTP"}); return; }
+    setPerr({}); setBusy(true);
+    setTimeout(()=>{
+      const db=getDB(), k="ph_"+ph.replace(/\D/g,"");
+      if (!db[k]){ db[k]={ id:"p_"+Date.now(),name:"Phone User",email:k+"@jobbox.in",phone:ph,password:"",skills:["Manual Testing"],location:"Hyderabad",experience:"Fresher",createdAt:new Date().toISOString() }; saveDB(db); }
+      saveSession(db[k]); ok("Phone verified! Welcome 📱");
+      setTimeout(()=>onLogin(db[k]),600); setBusy(false);
+    },800);
+  };
+
+  // FORGOT
+  const doForgot = () => {
+    if (!emailOk(fe)) return;
+    setBusy(true);
+    setTimeout(()=>{ setFok(true); ok("Reset link sent ✓"); setBusy(false); },900);
+  };
+
+  const s=<span style={{ color:C.danger }}>*</span>;
+
+  return (
+    <div style={{ minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:20,position:"relative",overflow:"hidden",fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
+      <div style={{ position:"absolute",top:"15%",left:"5%",width:400,height:400,borderRadius:"50%",background:C.primaryGlow,filter:"blur(80px)",pointerEvents:"none" }}/>
+      <div style={{ position:"absolute",bottom:"10%",right:"5%",width:300,height:300,borderRadius:"50%",background:C.purpleGlow,filter:"blur(80px)",pointerEvents:"none" }}/>
+
+      <div style={{ width:"100%",maxWidth:456,position:"relative",zIndex:1 }}>
+        {/* Logo */}
+        <div style={{ textAlign:"center",marginBottom:24 }}>
+          <div style={{ display:"inline-flex",alignItems:"center",gap:10,marginBottom:8 }}>
+            <div style={{ width:46,height:46,borderRadius:13,background:C.gradient,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,boxShadow:`0 6px 20px ${C.primaryGlow}` }}>📬</div>
+            <span style={{ fontSize:30,fontWeight:900,background:C.gradient,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>JobBox</span>
+          </div>
+          <p style={{ color:C.textMuted,fontSize:14,margin:0 }}>Your inbox for Software Testing jobs · India 🇮🇳</p>
+        </div>
+
+        <div style={{ background:C.card,border:`1px solid ${C.border}`,borderRadius:20,padding:26,boxShadow:"0 20px 60px #00000088" }}>
+
+          {/* Tabs */}
+          {(mode==="login"||mode==="register") && (
+            <div style={{ display:"flex",background:C.surface,borderRadius:12,padding:4,marginBottom:20 }}>
+              {["login","register"].map(m=>(
+                <button key={m} onClick={()=>{ setMode(m);setLerr({});setRerr({}); }} style={{ flex:1,padding:"9px",borderRadius:9,border:"none",background:mode===m?C.gradient:"transparent",color:mode===m?"#fff":C.textMuted,fontWeight:700,cursor:"pointer",fontSize:14,textTransform:"capitalize",transition:"all .2s" }}>{m==="login"?"Sign In":"Create Account"}</button>
+              ))}
+            </div>
+          )}
+
+          {/* LOGIN */}
+          {mode==="login" && (<>
+            <Inp label={<>Email {s}</>} type="email" value={le} onChange={e=>setLe(e.target.value)} placeholder="yourname@email.com" icon="✉" err={lerr.email}/>
+            <div style={{ position:"relative" }}>
+              <Inp label={<>Password {s}</>} type={showP?"text":"password"} value={lp} onChange={e=>setLp(e.target.value)} placeholder="Enter password" icon="🔒" err={lerr.pass}/>
+              <button onClick={()=>setShowP(p=>!p)} style={{ position:"absolute",right:12,top:33,background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:18 }}>{showP?"🙈":"👁"}</button>
+            </div>
+            <div style={{ textAlign:"right",marginTop:-8,marginBottom:14 }}>
+              <button onClick={()=>setMode("forgot")} style={{ background:"none",border:"none",color:C.primary,cursor:"pointer",fontSize:13,fontWeight:600 }}>Forgot password?</button>
+            </div>
+            <button onClick={doLogin} disabled={busy} style={{ width:"100%",background:C.gradient,border:"none",borderRadius:10,padding:"12px",color:"#fff",fontWeight:800,fontSize:15,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:8,opacity:busy?.7:1 }}>
+              {busy?<Spin/>:null} Sign In to JobBox
+            </button>
+            <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:14 }}>
+              <div style={{ flex:1,height:1,background:C.border }}/><span style={{ color:C.textMuted,fontSize:12 }}>or continue with</span><div style={{ flex:1,height:1,background:C.border }}/>
+            </div>
+            <div style={{ display:"flex",gap:10,marginBottom:14 }}>
+              <SocBtn icon="🌐" label="Google" onClick={doGoogle} disabled={busy}/>
+              <SocBtn icon="📱" label="Phone OTP" onClick={()=>setMode("phone")} disabled={busy}/>
+            </div>
+            <div style={{ background:C.surface,borderRadius:10,padding:"10px 14px",textAlign:"center" }}>
+              <span style={{ fontSize:12,color:C.textMuted }}>Demo: </span>
+              <span style={{ fontSize:12,color:C.primary,fontWeight:700 }}>demo@jobbox.in</span>
+              <span style={{ fontSize:12,color:C.textMuted }}> / </span>
+              <span style={{ fontSize:12,color:C.primary,fontWeight:700 }}>Demo@123</span>
+            </div>
+          </>)}
+
+          {/* REGISTER */}
+          {mode==="register" && (<>
+            <Inp label={<>Full Name {s}</>} value={rn} onChange={e=>setRn(e.target.value)} placeholder="Srinath Avula" icon="👤" err={rerr.name}/>
+            <Inp label={<>Email {s}</>} type="email" value={re} onChange={e=>setRe(e.target.value)} placeholder="yourname@email.com" icon="✉" err={rerr.email}/>
+            <Inp label="Mobile (optional)" value={rph} onChange={e=>setRph(e.target.value)} placeholder="+91 9876543210" icon="📱" err={rerr.phone} hint="For job alerts via SMS"/>
+            <div style={{ position:"relative" }}>
+              <Inp label={<>Password {s}</>} type={showP?"text":"password"} value={rp} onChange={e=>setRp(e.target.value)} placeholder="Min 6 characters" icon="🔒" err={rerr.pass}/>
+              <button onClick={()=>setShowP(p=>!p)} style={{ position:"absolute",right:12,top:33,background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:18 }}>{showP?"🙈":"👁"}</button>
+            </div>
+            <Inp label={<>Confirm Password {s}</>} type="password" value={rc} onChange={e=>setRc(e.target.value)} placeholder="Re-enter password" icon="🔒" err={rerr.conf}/>
+            <div style={{ marginBottom:14 }}>
+              <label style={{ display:"block",fontSize:13,fontWeight:700,color:C.textSub,marginBottom:5 }}>Preferred City</label>
+              <select value={rl} onChange={e=>setRl(e.target.value)} style={{ width:"100%",background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:10,padding:"11px 14px",color:C.text,fontSize:14,outline:"none" }}>
+                {["Hyderabad","Bangalore","Chennai","Pune","Mumbai","Noida","Delhi","Remote","Any"].map(l=><option key={l}>{l}</option>)}
+              </select>
+            </div>
+            <Inp label="Your Skills" value={rsk} onChange={e=>setRsk(e.target.value)} placeholder="Selenium, Java, Cypress, API Testing" icon="🛠" hint="Comma-separated — helps us match jobs"/>
+            <button onClick={doReg} disabled={busy} style={{ width:"100%",background:C.gradient,border:"none",borderRadius:10,padding:"12px",color:"#fff",fontWeight:800,fontSize:15,cursor:"pointer",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"center",gap:8,opacity:busy?.7:1 }}>
+              {busy?<Spin/>:null} Create My Account
+            </button>
+            <SocBtn icon="🌐" label="Continue with Google" onClick={doGoogle} disabled={busy} full/>
+          </>)}
+
+          {/* PHONE OTP */}
+          {mode==="phone" && (<>
+            <BackRow onBack={()=>setMode("login")} title="Phone Number Login" sub="Get a 6-digit OTP on your mobile"/>
+            <Inp label="Mobile Number" value={ph} onChange={e=>setPh(e.target.value)} placeholder="+91 9876543210" icon="📱" err={perr.phone}/>
+            {!sent ? (
+              <button onClick={sendOtp} style={{ width:"100%",background:C.gradient,border:"none",borderRadius:10,padding:"12px",color:"#fff",fontWeight:800,fontSize:15,cursor:"pointer" }}>Send OTP →</button>
+            ) : (<>
+              <div style={{ background:"#22c55e18",border:"1px solid #22c55e44",borderRadius:10,padding:"10px 14px",marginBottom:12,fontSize:13,color:C.success }}>✓ OTP sent to {ph}</div>
+              <Inp label="Enter OTP" value={ot} onChange={e=>setOt(e.target.value)} placeholder="6-digit code" icon="🔑" err={perr.otp}/>
+              <button onClick={verifyOtp} disabled={busy} style={{ width:"100%",background:C.gradient,border:"none",borderRadius:10,padding:"12px",color:"#fff",fontWeight:800,fontSize:15,cursor:"pointer",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"center",gap:8,opacity:busy?.7:1 }}>
+                {busy?<Spin/>:null} Verify & Login
+              </button>
+              <button onClick={()=>{setSent(false);setOt("");setGen("");}} style={{ background:"none",border:"none",color:C.primary,cursor:"pointer",fontSize:13,fontWeight:600,display:"block",margin:"0 auto" }}>Resend OTP</button>
+            </>)}
+          </>)}
+
+          {/* FORGOT */}
+          {mode==="forgot" && (<>
+            <BackRow onBack={()=>setMode("login")} title="Reset Password" sub="We'll email you a reset link"/>
+            {fok ? (
+              <div style={{ textAlign:"center",padding:18 }}>
+                <div style={{ fontSize:44,marginBottom:10 }}>📧</div>
+                <div style={{ fontWeight:900,color:C.text,fontSize:18,marginBottom:6 }}>Check your inbox!</div>
+                <div style={{ color:C.textSub,fontSize:14 }}>Reset link sent to <strong>{fe}</strong></div>
+                <button onClick={()=>{setMode("login");setFok(false);setFe("");}} style={{ marginTop:16,background:C.gradient,border:"none",borderRadius:10,padding:"10px 22px",color:"#fff",fontWeight:700,cursor:"pointer" }}>Back to Sign In</button>
+              </div>
+            ) : (<>
+              <Inp label="Email Address" type="email" value={fe} onChange={e=>setFe(e.target.value)} placeholder="yourname@email.com" icon="✉"/>
+              <button onClick={doForgot} disabled={busy} style={{ width:"100%",background:C.gradient,border:"none",borderRadius:10,padding:"12px",color:"#fff",fontWeight:800,fontSize:15,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,opacity:busy?.7:1 }}>
+                {busy?<Spin/>:null} Send Reset Link
+              </button>
+            </>)}
+          </>)}
+        </div>
+        <p style={{ textAlign:"center",color:C.textMuted,fontSize:12,marginTop:14 }}>© 2026 JobBox · Built for QA Freshers in India 🇮🇳</p>
+      </div>
+
+      {toast && <Toast msg={toast.msg} type={toast.type} onDone={()=>setToast(null)}/>}
+      <style>{`@keyframes jbspin{to{transform:rotate(360deg)}} @keyframes jbup{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
+    </div>
+  );
+}
+
+const SocBtn = ({ icon, label, onClick, disabled, full }) => (
+  <button onClick={onClick} disabled={disabled} style={{ flex:full?undefined:1,width:full?"100%":undefined,background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",cursor:"pointer",fontWeight:700,color:C.text,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"border .15s",marginBottom:full?10:0 }}
+    onMouseEnter={e=>e.currentTarget.style.borderColor=C.primary} onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+    {icon} {label}
+  </button>
+);
+
+const BackRow = ({ onBack, title, sub }) => (
+  <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:18 }}>
+    <button onClick={onBack} style={{ background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 12px",color:C.textSub,cursor:"pointer",fontSize:13,fontWeight:700 }}>← Back</button>
+    <div><div style={{ fontWeight:800,color:C.text,fontSize:15 }}>{title}</div><div style={{ fontSize:12,color:C.textMuted }}>{sub}</div></div>
+  </div>
+);
+
+// ═══════════════════════════════════════════════════
+// JOB CARD
+// ═══════════════════════════════════════════════════
+function JobCard({ job, saved, applied, onSave, onApply, onView, uSkills=[] }) {
+  const [hov,setHov]=useState(false);
+  const cc=job.comp==="Low"?C.success:job.comp==="Medium"?C.warn:C.danger;
+  const tc=job.trust==="Verified Source"?C.success:job.trust==="Company Website"?C.primary:C.warn;
+  return (
+    <div onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} onClick={()=>onView(job)}
+      style={{ background:hov?C.surface:C.card,border:`1px solid ${hov?C.borderHover:C.border}`,borderRadius:14,padding:"15px 17px",cursor:"pointer",transition:"all .2s",display:"flex",gap:13,alignItems:"flex-start",position:"relative",overflow:"hidden",boxShadow:hov?"0 6px 24px #00000066":"none" }}>
+      {job.isNew && <div style={{ position:"absolute",top:0,left:0,background:C.success,color:"#fff",fontSize:9,fontWeight:900,padding:"3px 10px",borderRadius:"0 0 8px 0",letterSpacing:".08em" }}>NEW</div>}
+      <AvatarBox name={job.company} size={44}/>
+      <div style={{ flex:1,minWidth:0 }}>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8 }}>
+          <div>
+            <div style={{ fontWeight:800,fontSize:15,color:C.text }}>{job.title}</div>
+            <div style={{ color:C.textSub,fontSize:13,fontWeight:600 }}>{job.company}</div>
+          </div>
+          <MatchRing score={job.match}/>
+        </div>
+        <div style={{ display:"flex",gap:5,flexWrap:"wrap",marginTop:7 }}>
+          <Bdg color={C.textMuted} sm>📍 {job.location}</Bdg>
+          <Bdg color={C.textMuted} sm>🕐 {job.exp}</Bdg>
+          <Bdg color={PLAT_CLR[job.platform]||C.primary} sm>{job.platform}</Bdg>
+          <Bdg color={cc} sm>⚡ {job.comp}</Bdg>
+          <Bdg color={tc} sm>✓ {job.trust}</Bdg>
+        </div>
+        <div style={{ display:"flex",gap:5,flexWrap:"wrap",marginTop:7 }}>
+          {job.skills.map(s=>{ const ok=uSkills.includes(s); return <span key={s} style={{ background:ok?"#22c55e18":"#1a2440",color:ok?C.success:C.textMuted,border:`1px solid ${ok?"#22c55e44":C.border}`,borderRadius:4,padding:"2px 7px",fontSize:10,fontWeight:700 }}>{ok?"✓ ":""}{s}</span>; })}
+        </div>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:11 }}>
+          <span style={{ fontSize:11,color:C.textMuted }}>🕐 {job.ago} · 👥 {job.applicants} applied</span>
+          <div style={{ display:"flex",gap:7 }} onClick={e=>e.stopPropagation()}>
+            <button onClick={()=>onSave(job.id)} style={{ background:saved?"#f59e0b22":"transparent",color:saved?C.warn:C.textMuted,border:`1px solid ${saved?"#f59e0b44":C.border}`,borderRadius:8,padding:"5px 11px",fontSize:12,fontWeight:700,cursor:"pointer",transition:"all .15s" }}>{saved?"⭐ Saved":"☆ Save"}</button>
+            <button onClick={()=>onApply(job)} style={{ background:applied?"#22c55e22":C.gradient,color:applied?C.success:"#fff",border:`1px solid ${applied?"#22c55e44":"transparent"}`,borderRadius:8,padding:"5px 15px",fontSize:12,fontWeight:800,cursor:"pointer",transition:"all .15s" }}>{applied?"✓ Applied":"Apply →"}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════
+// JOB MODAL
+// ═══════════════════════════════════════════════════
+function JobModal({ job, onClose, onApply, saved, onSave, applied, uSkills=[] }) {
+  const [tab,setTab]=useState("overview");
+  const [mq,setMq]=useState(null); const [ans,setAns]=useState(""); const [fb,setFb]=useState(""); const [ld,setLd]=useState(false);
+  const qs=IQS[job.company]||IQS.default;
+  const miss=job.skills.filter(s=>!uSkills.includes(s));
+
+  const getAI = async () => {
+    if (!ans.trim()) return;
+    setLd(true); setFb("");
+    try {
+      const r=await fetch("https://api.anthropic.com/v1/messages",{ method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ model:"claude-sonnet-4-20250514",max_tokens:400,
+          messages:[{ role:"user",content:`You're a senior QA interviewer at ${job.company}. Question: "${mq}". Answer: "${ans}". Give 3-4 lines of constructive, specific feedback. What's good, what to improve, a quick tip. Under 120 words.` }]
+        })
+      });
+      const d=await r.json();
+      setFb(d.content?.[0]?.text||"Great attempt! Keep practicing.");
+    } catch { setFb("Keep practicing! Review the official docs for more depth."); }
+    setLd(false);
+  };
+
+  return (
+    <div style={{ position:"fixed",inset:0,background:"#000000cc",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }} onClick={onClose}>
+      <div style={{ background:C.card,border:`1px solid ${C.border}`,borderRadius:20,width:"100%",maxWidth:680,maxHeight:"90vh",overflowY:"auto",padding:24 }} onClick={e=>e.stopPropagation()}>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16 }}>
+          <div style={{ display:"flex",gap:13,alignItems:"center" }}>
+            <AvatarBox name={job.company} size={50}/>
+            <div><div style={{ fontSize:20,fontWeight:900,color:C.text }}>{job.title}</div><div style={{ color:C.textSub,fontSize:14 }}>{job.company} · {job.location}</div></div>
+          </div>
+          <button onClick={onClose} style={{ background:C.surface,border:`1px solid ${C.border}`,color:C.textSub,borderRadius:8,width:34,height:34,cursor:"pointer",fontSize:16,flexShrink:0 }}>✕</button>
+        </div>
+        <div style={{ display:"flex",gap:7,marginBottom:16,borderBottom:`1px solid ${C.border}`,paddingBottom:14 }}>
+          {[["overview","📋 Overview"],["prep","🎯 Interview Prep"],["gap","📊 Skill Gap"]].map(([t,l])=>(
+            <button key={t} onClick={()=>setTab(t)} style={{ background:tab===t?C.gradient:"transparent",color:tab===t?"#fff":C.textMuted,border:`1px solid ${tab===t?C.primary:C.border}`,borderRadius:8,padding:"7px 13px",fontSize:12,fontWeight:700,cursor:"pointer",transition:"all .15s" }}>{l}</button>
+          ))}
+        </div>
+
+        {tab==="overview" && (
+          <div>
+            <div style={{ display:"flex",gap:8,flexWrap:"wrap",marginBottom:12 }}>
+              <Bdg color={C.primary}>📍 {job.location}</Bdg><Bdg color={C.warn}>🕐 {job.exp}</Bdg>
+              <Bdg color={PLAT_CLR[job.platform]||C.primary}>{job.platform}</Bdg>
+              <Bdg color={job.comp==="Low"?C.success:job.comp==="Medium"?C.warn:C.danger}>⚡ {job.comp} · {job.applicants} applied</Bdg>
+            </div>
+            <p style={{ color:C.textSub,lineHeight:1.7,fontSize:14,marginBottom:14 }}>{job.desc}</p>
+            <div style={{ background:C.surface,borderRadius:10,padding:13,marginBottom:14 }}>
+              <div style={{ fontSize:11,fontWeight:800,color:C.textMuted,marginBottom:9,letterSpacing:".08em" }}>REQUIRED SKILLS</div>
+              <div style={{ display:"flex",gap:7,flexWrap:"wrap" }}>
+                {job.skills.map(s=>{ const ok=uSkills.includes(s); return <span key={s} style={{ background:ok?"#22c55e18":"#ef444418",color:ok?C.success:C.danger,border:`1px solid ${ok?"#22c55e44":"#ef444444"}`,borderRadius:6,padding:"4px 10px",fontSize:12,fontWeight:700 }}>{ok?"✓ ":"✗ "}{s}</span>; })}
+              </div>
+            </div>
+            <div style={{ display:"flex",gap:9 }}>
+              <button onClick={()=>onSave(job.id)} style={{ flex:1,background:saved?"#f59e0b22":C.surface,color:saved?C.warn:C.textSub,border:`1px solid ${saved?"#f59e0b44":C.border}`,borderRadius:10,padding:"10px",fontWeight:700,cursor:"pointer",fontSize:14 }}>{saved?"⭐ Saved":"☆ Save Job"}</button>
+              <button onClick={()=>onApply(job)} style={{ flex:2,background:applied?"#22c55e22":C.gradient,color:applied?C.success:"#fff",border:`1px solid ${applied?"#22c55e44":"transparent"}`,borderRadius:10,padding:"10px",fontWeight:800,cursor:"pointer",fontSize:14 }}>{applied?"✓ Applied":"Apply Now →"}</button>
+            </div>
+          </div>
+        )}
+
+        {tab==="prep" && (
+          <div>
+            <div style={{ background:C.surface,borderRadius:12,padding:14,marginBottom:12 }}>
+              <div style={{ fontSize:13,fontWeight:800,color:C.primary,marginBottom:11 }}>🎯 Common Questions — {job.company}</div>
+              {qs.map((q,i)=>(
+                <div key={i} onClick={()=>{ setMq(q);setAns("");setFb(""); }} style={{ padding:"10px 13px",background:mq===q?C.primaryGlow:C.card,borderRadius:8,marginBottom:6,color:C.text,fontSize:13,lineHeight:1.6,cursor:"pointer",border:`1px solid ${mq===q?C.primary:C.border}`,transition:"all .15s" }}>
+                  <span style={{ color:C.primary,fontWeight:800 }}>Q{i+1}.</span> {q}
+                  <span style={{ float:"right",fontSize:11,color:C.textMuted }}>Practice →</span>
+                </div>
+              ))}
+            </div>
+            {mq && (
+              <div style={{ background:C.surface,borderRadius:12,padding:14 }}>
+                <div style={{ fontSize:11,fontWeight:800,color:C.warn,marginBottom:7,letterSpacing:".08em" }}>🤖 AI MOCK INTERVIEW</div>
+                <div style={{ fontWeight:700,color:C.text,fontSize:14,marginBottom:9 }}>{mq}</div>
+                <textarea value={ans} onChange={e=>setAns(e.target.value)} placeholder="Type your answer here..." style={{ width:"100%",background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:11,color:C.text,fontSize:13,minHeight:85,resize:"vertical",outline:"none",fontFamily:"inherit",boxSizing:"border-box" }}/>
+                <button onClick={getAI} disabled={ld||!ans.trim()} style={{ marginTop:9,background:"linear-gradient(135deg,#f59e0b,#f97316)",border:"none",borderRadius:8,padding:"8px 18px",color:"#fff",fontWeight:800,cursor:"pointer",fontSize:13,opacity:(ld||!ans.trim())?.6:1,display:"flex",alignItems:"center",gap:7 }}>
+                  {ld?<Spin/>:null} Get AI Feedback →
+                </button>
+                {fb && <div style={{ marginTop:11,background:C.successGlow,border:`1px solid ${C.success}44`,borderRadius:8,padding:11,color:C.success,fontSize:13,lineHeight:1.7 }}><strong>🤖 Feedback: </strong>{fb}</div>}
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab==="gap" && (
+          <div>
+            {job.skills.filter(s=>uSkills.includes(s)).length>0 && (
+              <div style={{ background:C.surface,borderRadius:12,padding:14,marginBottom:12 }}>
+                <div style={{ fontSize:13,fontWeight:800,color:C.success,marginBottom:11 }}>✅ Your Matched Skills</div>
+                {job.skills.filter(s=>uSkills.includes(s)).map(s=>(
+                  <div key={s} style={{ display:"flex",alignItems:"center",gap:9,padding:"7px 0",borderBottom:`1px solid ${C.border}` }}>
+                    <span style={{ color:C.success,fontWeight:900 }}>✓</span>
+                    <span style={{ color:C.text,fontWeight:600,flex:1 }}>{s}</span>
+                    <div style={{ width:90,height:4,background:C.border,borderRadius:4 }}><div style={{ height:"100%",background:C.success,borderRadius:4,width:"85%" }}/></div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {miss.length>0 ? (
+              <div style={{ background:C.surface,borderRadius:12,padding:14 }}>
+                <div style={{ fontSize:13,fontWeight:800,color:C.danger,marginBottom:11 }}>❌ Skills to Learn</div>
+                {miss.map(s=>(
+                  <div key={s} style={{ background:"#ef444411",border:"1px solid #ef444433",borderRadius:8,padding:11,marginBottom:7 }}>
+                    <div style={{ color:C.danger,fontWeight:800,marginBottom:3 }}>✗ {s}</div>
+                    <div style={{ fontSize:12,color:C.textSub }}>📚 YouTube · Udemy · Official Docs · GitHub Projects</div>
+                  </div>
+                ))}
+              </div>
+            ) : <div style={{ textAlign:"center",color:C.success,fontWeight:900,fontSize:16,padding:18 }}>🎉 100% skill match — apply with confidence!</div>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════
+// KANBAN
+// ═══════════════════════════════════════════════════
+function KanbanBoard({ apps, setApps }) {
+  const [drag,setDrag]=useState(null); const [ov,setOv]=useState(null);
+  const forS=s=>apps.filter(a=>a.status===s);
+  const drop=s=>{ if(drag!=null) setApps(p=>p.map(a=>a.id===drag?{...a,status:s}:a)); setDrag(null);setOv(null); };
+  return (
+    <div style={{ overflowX:"auto",paddingBottom:10 }}>
+      <div style={{ display:"flex",gap:9,minWidth:"max-content" }}>
+        {STAGES.map(s=>(
+          <div key={s} onDragOver={e=>{e.preventDefault();setOv(s);}} onDrop={()=>drop(s)} onDragLeave={()=>setOv(null)}
+            style={{ width:210,background:ov===s?C.surface:C.bg,border:`2px dashed ${ov===s?STAGE_CLR[s]:C.border}`,borderRadius:14,padding:9,transition:"all .2s",flexShrink:0 }}>
+            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:9 }}>
+              <span style={{ fontSize:10,fontWeight:900,color:STAGE_CLR[s],letterSpacing:".06em" }}>{s.toUpperCase()}</span>
+              <span style={{ background:`${STAGE_CLR[s]}33`,color:STAGE_CLR[s],borderRadius:10,padding:"1px 7px",fontSize:11,fontWeight:800 }}>{forS(s).length}</span>
+            </div>
+            {forS(s).map(a=>(
+              <div key={a.id} draggable onDragStart={()=>setDrag(a.id)}
+                style={{ background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:10,marginBottom:7,cursor:"grab",userSelect:"none",opacity:drag===a.id?.4:1,transition:"opacity .15s" }}>
+                <div style={{ fontWeight:800,color:C.text,fontSize:13 }}>{a.role}</div>
+                <div style={{ color:C.textMuted,fontSize:12,margin:"3px 0" }}>{a.company}</div>
+                <div style={{ fontSize:11,color:C.textMuted }}>📍 {a.location}</div>
+                {a.interviewDate && <div style={{ fontSize:11,color:C.warn,marginTop:3 }}>📅 {a.interviewDate}</div>}
+                {a.dateApplied   && <div style={{ fontSize:11,color:C.textMuted,marginTop:2 }}>Applied: {a.dateApplied}</div>}
+                {a.notes && <div style={{ fontSize:11,color:C.textSub,marginTop:5,borderTop:`1px solid ${C.border}`,paddingTop:5,lineHeight:1.4 }}>{a.notes}</div>}
+              </div>
+            ))}
+            {!forS(s).length && <div style={{ color:C.textMuted,fontSize:12,textAlign:"center",padding:"18px 0",opacity:.4 }}>Drop here</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════
+// AI CHAT
+// ═══════════════════════════════════════════════════
+function AIChat({ user }) {
+  const [msgs,setMsgs]=useState([{ role:"assistant",text:`Hi ${user.name.split(" ")[0]}! 👋 I'm JobBox AI. Ask me anything about QA interviews, Selenium, Cypress, resumes, or job search strategy for India!` }]);
+  const [inp,setInp]=useState(""); const [ld,setLd]=useState(false);
+  const bot=useRef(null);
+  const qk=["How to prepare for Selenium interview?","Write test cases for login page","Explain TestNG annotations","Best Cypress practices for freshers","How to crack TCS QA round?","API testing interview questions"];
+  useEffect(()=>bot.current?.scrollIntoView({behavior:"smooth"}),[msgs]);
+
+  const send=async txt=>{
+    const q=(txt||inp).trim(); if(!q||ld) return;
+    setInp(""); setMsgs(p=>[...p,{role:"user",text:q}]); setLd(true);
+    try {
+      const hist=msgs.slice(1).map(m=>({role:m.role,content:m.text}));
+      const r=await fetch("https://api.anthropic.com/v1/messages",{ method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ model:"claude-sonnet-4-20250514",max_tokens:500,
+          system:`You are JobBox AI, a career coach for software testing freshers in India. User: ${user.name}, skills: ${(user.skills||[]).join(", ")||"beginner"}. Help with QA interviews, Selenium/Cypress, resume tips, job search in India's IT market. Be concise, practical, encouraging. Max 150 words.`,
+          messages:[...hist,{role:"user",content:q}]
+        })
+      });
+      const d=await r.json();
+      setMsgs(p=>[...p,{role:"assistant",text:d.content?.[0]?.text||"I'm here to help!"}]);
+    } catch { setMsgs(p=>[...p,{role:"assistant",text:"Connection hiccup! Try asking about Selenium, Cypress, or interview tips."}]); }
+    setLd(false);
+  };
+
+  return (
+    <div>
+      <div style={{ display:"flex",alignItems:"center",gap:12,marginBottom:16 }}>
+        <div style={{ width:44,height:44,borderRadius:12,background:C.gradient,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22 }}>🤖</div>
+        <div><div style={{ fontWeight:900,color:C.text,fontSize:17 }}>JobBox AI Career Coach</div><div style={{ fontSize:12,color:C.success }}>● Online · Powered by Claude AI</div></div>
+      </div>
+      <div style={{ background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:15,marginBottom:13 }}>
+        <div style={{ maxHeight:380,overflowY:"auto",display:"flex",flexDirection:"column",gap:9,marginBottom:13 }}>
+          {msgs.map((m,i)=>(
+            <div key={i} style={{ display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start" }}>
+              <div style={{ background:m.role==="user"?C.gradient:C.surface,color:m.role==="user"?"#fff":C.text,borderRadius:m.role==="user"?"14px 14px 4px 14px":"14px 14px 14px 4px",padding:"9px 13px",maxWidth:"82%",fontSize:13,lineHeight:1.6,border:m.role==="assistant"?`1px solid ${C.border}`:"none" }}>{m.text}</div>
+            </div>
+          ))}
+          {ld && <div style={{ color:C.primary,fontSize:13,padding:"3px 11px",display:"flex",alignItems:"center",gap:7 }}><Spin/> Thinking...</div>}
+          <div ref={bot}/>
+        </div>
+        <div style={{ display:"flex",gap:8 }}>
+          <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Ask about interviews, Selenium, Cypress, resumes..." style={{ flex:1,background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 13px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit" }}/>
+          <button onClick={()=>send()} disabled={ld||!inp.trim()} style={{ background:C.gradient,border:"none",borderRadius:10,padding:"10px 15px",color:"#fff",fontWeight:800,cursor:"pointer",fontSize:17,opacity:(ld||!inp.trim())?.6:1 }}>→</button>
+        </div>
+      </div>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(195px,1fr))",gap:8 }}>
+        {qk.map(q=>(
+          <div key={q} onClick={()=>send(q)} style={{ background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 13px",fontSize:13,color:C.textSub,cursor:"pointer",transition:"all .15s" }}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor=C.primary;e.currentTarget.style.color=C.text;}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.textSub;}}>{q}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════
+// PROFILE / SETTINGS
+// ═══════════════════════════════════════════════════
+function ProfilePage({ user, onUpdate, onLogout }) {
+  const [nm,setNm]=useState(user.name); const [ph,setPh]=useState(user.phone||""); const [loc,setLoc]=useState(user.location||"Hyderabad");
+  const [sk,setSk]=useState((user.skills||[]).join(", ")); const [ex,setEx]=useState(user.experience||"Fresher");
+  const [done,setDone]=useState(false);
+
+  const save=()=>{
+    const u2={ ...user,name:nm,phone:ph,location:loc,experience:ex,skills:sk.split(",").map(s=>s.trim()).filter(Boolean) };
+    const db=getDB(); db[user.email]=u2; saveDB(db); saveSession(u2); onUpdate(u2);
+    setDone(true); setTimeout(()=>setDone(false),2200);
+  };
+
+  return (
+    <div style={{ maxWidth:580 }}>
+      <h2 style={{ fontSize:22,fontWeight:900,color:C.text,margin:"0 0 4px" }}>Profile & Settings</h2>
+      <p style={{ color:C.textMuted,fontSize:14,margin:"0 0 22px" }}>Keep your profile updated for better job matches</p>
+
+      <div style={{ background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:20,marginBottom:14 }}>
+        <div style={{ display:"flex",alignItems:"center",gap:15,marginBottom:20,paddingBottom:16,borderBottom:`1px solid ${C.border}` }}>
+          <AvatarBox name={user.name} size={60}/>
+          <div>
+            <div style={{ fontWeight:900,fontSize:18,color:C.text }}>{user.name}</div>
+            <div style={{ color:C.primary,fontSize:13,fontWeight:600 }}>{user.email}</div>
+            <div style={{ color:C.textMuted,fontSize:12,marginTop:2 }}>Member since {new Date(user.createdAt||Date.now()).toLocaleDateString("en-IN",{ month:"long",year:"numeric" })}</div>
+          </div>
+        </div>
+        <Inp label="Full Name" value={nm} onChange={e=>setNm(e.target.value)} icon="👤"/>
+        <Inp label="Mobile Number" value={ph} onChange={e=>setPh(e.target.value)} placeholder="+91 9876543210" icon="📱"/>
+        <div style={{ marginBottom:14 }}>
+          <label style={{ display:"block",fontSize:13,fontWeight:700,color:C.textSub,marginBottom:5 }}>Preferred Location</label>
+          <select value={loc} onChange={e=>setLoc(e.target.value)} style={{ width:"100%",background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:10,padding:"11px 14px",color:C.text,fontSize:14,outline:"none" }}>
+            {["Hyderabad","Bangalore","Chennai","Pune","Mumbai","Noida","Delhi","Remote","Any"].map(l=><option key={l}>{l}</option>)}
+          </select>
+        </div>
+        <div style={{ marginBottom:14 }}>
+          <label style={{ display:"block",fontSize:13,fontWeight:700,color:C.textSub,marginBottom:5 }}>Experience</label>
+          <select value={ex} onChange={e=>setEx(e.target.value)} style={{ width:"100%",background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:10,padding:"11px 14px",color:C.text,fontSize:14,outline:"none" }}>
+            {["Fresher","0-1 year","1-2 years"].map(v=><option key={v}>{v}</option>)}
+          </select>
+        </div>
+        <Inp label="Skills (comma-separated)" value={sk} onChange={e=>setSk(e.target.value)} placeholder="Selenium, Java, Cypress, API Testing, Postman" icon="🛠" hint="Affects your job match scores"/>
+        <button onClick={save} style={{ background:done?"#22c55e22":C.gradient,border:done?`1px solid ${C.success}44`:"none",borderRadius:10,padding:"11px 22px",color:done?C.success:"#fff",fontWeight:800,cursor:"pointer",fontSize:14,transition:"all .2s" }}>{done?"✓ Profile Saved!":"Save Profile"}</button>
+      </div>
+
+      <div style={{ background:"#ef444411",border:"1px solid #ef444433",borderRadius:16,padding:18 }}>
+        <div style={{ fontWeight:800,color:C.danger,marginBottom:5 }}>⚠ Sign Out</div>
+        <p style={{ color:C.textSub,fontSize:14,margin:"0 0 13px" }}>Sign out of your JobBox account on this device.</p>
+        <button onClick={onLogout} style={{ background:C.danger,border:"none",borderRadius:10,padding:"10px 20px",color:"#fff",fontWeight:800,cursor:"pointer",fontSize:14 }}>🚪 Sign Out of JobBox</button>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════
+// MAIN APP (authenticated shell)
+// ═══════════════════════════════════════════════════
+function MainApp({ user:initUser, onLogout }) {
+  const [user,setUser]=useState(initUser);
+  const [tab,setTab]=useState("inbox");
+  const [savedIds,setSaved]=useState(new Set([1,3,9]));
+  const [appliedIds,setApplied]=useState(new Set([3,9,6,5]));
+  const [apps,setApps]=useState(INIT_APPS);
+  const [selJob,setSel]=useState(null);
+  const [search,setSearch]=useState("");
+  const [fLoc,setFLoc]=useState("All"); const [fPlat,setFPlat]=useState("All"); const [fComp,setFComp]=useState("All");
+  const [sidebar,setSidebar]=useState(true);
+  const [toast,setToast]=useState(null);
+  const [notif,setNotif]=useState(true);
+
+  const uSkills=user.skills||[];
+  const t=msg=>setToast({msg,type:"success"});
+  const tw=msg=>setToast({msg,type:"warn"});
+
+  const filtered=JOBS.filter(j=>{
+    const q=search.toLowerCase();
+    const mq=!q||[j.title,j.company,j.location,...j.skills].some(x=>x.toLowerCase().includes(q));
+    return mq&&(fLoc==="All"||j.location===fLoc)&&(fPlat==="All"||j.platform===fPlat)&&(fComp==="All"||j.comp===fComp);
+  }).sort((a,b)=>b.match-a.match);
+
+  const doSave=id=>{ setSaved(p=>{ const n=new Set(p); n.has(id)?(n.delete(id),tw("Removed from saved")):n.add(id); if(n.has(id)) t("Job saved ⭐"); return n; }); };
+
+  const doApply=job=>{ if(appliedIds.has(job.id)){ tw("Already applied to this job"); return; } setApplied(p=>new Set([...p,job.id])); setApps(p=>[...p,{ id:Date.now(),jobId:job.id,company:job.company,role:job.title,location:job.location,platform:job.platform,status:"Applied",dateApplied:new Date().toISOString().split("T")[0],notes:"",interviewDate:"",recruiter:"" }]); t(`Applied to ${job.company} · Added to Tracker ✓`); };
+
+  const doLogout=()=>{ clearSes(); t("Signed out. See you! 👋"); setTimeout(onLogout,800); };
+
+  const NAV=[
+    { id:"inbox",   icon:"📬",label:"Inbox",      badge:filtered.filter(j=>j.isNew).length },
+    { id:"saved",   icon:"⭐",label:"Saved",       badge:savedIds.size },
+    { id:"tracker", icon:"📊",label:"App Tracker", badge:apps.length },
+    { id:"ai",      icon:"🤖",label:"AI Assistant"},
+    { id:"alerts",  icon:"🔔",label:"Alerts",      badge:3 },
+    { id:"profile", icon:"👤",label:"Profile" },
+  ];
+
+  const st={ total:apps.length, applied:apps.filter(a=>a.status==="Applied").length, interviews:apps.filter(a=>["Interview Scheduled","Technical Round","HR Round"].includes(a.status)).length, offers:apps.filter(a=>a.status==="Offer Received").length };
+  const locs=["All","Hyderabad","Bangalore","Chennai","Pune","Mumbai","Noida","Remote"];
+  const plats=["All","LinkedIn","Naukri","Indeed","Cutshort","Company Site","Instahyre","Wellfound"];
+  const comps=["All","Low","Medium","High"];
+
+  return (
+    <div style={{ fontFamily:"'DM Sans','Segoe UI',sans-serif",background:C.bg,minHeight:"100vh",color:C.text,display:"flex",flexDirection:"column" }}>
+      {notif && (
+        <div style={{ background:"linear-gradient(90deg,#4f8ef7,#a78bfa)",padding:"8px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0 }}>
+          <span style={{ fontSize:13,fontWeight:700 }}>🔥 <strong>17 new QA jobs</strong> dropped today · 4 match your skills at 90%+</span>
+          <button onClick={()=>setNotif(false)} style={{ background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:18,padding:0 }}>✕</button>
+        </div>
+      )}
+
+      <div style={{ display:"flex",flex:1,overflow:"hidden" }}>
+        {/* SIDEBAR */}
+        <aside style={{ width:sidebar?220:58,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",transition:"width .28s ease",flexShrink:0,overflow:"hidden" }}>
+          {/* Logo row */}
+          <div style={{ padding:"17px 11px 13px",display:"flex",alignItems:"center",gap:9,borderBottom:`1px solid ${C.border}`,minHeight:62 }}>
+            <div style={{ width:36,height:36,borderRadius:10,background:C.gradient,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0 }}>📬</div>
+            {sidebar&&<div style={{ overflow:"hidden" }}>
+              <div style={{ fontWeight:900,fontSize:18,background:C.gradient,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",whiteSpace:"nowrap" }}>JobBox</div>
+              <div style={{ fontSize:9,color:C.textMuted,fontWeight:700,letterSpacing:".07em" }}>QA JOBS INBOX</div>
+            </div>}
+            <button onClick={()=>setSidebar(p=>!p)} style={{ marginLeft:"auto",background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:17,flexShrink:0,padding:2 }}>{sidebar?"◀":"▶"}</button>
+          </div>
+
+          {/* User mini */}
+          {sidebar && (
+            <div style={{ padding:"11px 13px",borderBottom:`1px solid ${C.border}`,display:"flex",gap:9,alignItems:"center" }}>
+              <AvatarBox name={user.name} size={32}/>
+              <div style={{ overflow:"hidden" }}>
+                <div style={{ fontWeight:800,fontSize:13,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{user.name}</div>
+                <div style={{ fontSize:11,color:C.success,fontWeight:600 }}>{user.experience} · {user.location}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Nav links */}
+          <nav style={{ padding:"9px 5px",flex:1,overflowY:"auto" }}>
+            {NAV.map(item=>(
+              <button key={item.id} onClick={()=>setTab(item.id)} style={{ width:"100%",display:"flex",alignItems:"center",gap:9,padding:sidebar?"10px 10px":"10px 0",justifyContent:sidebar?"flex-start":"center",background:tab===item.id?"#4f8ef722":"transparent",border:`1px solid ${tab===item.id?"#4f8ef733":"transparent"}`,borderRadius:10,cursor:"pointer",marginBottom:3,transition:"all .15s" }}>
+                <span style={{ fontSize:18,flexShrink:0 }}>{item.icon}</span>
+                {sidebar&&<>
+                  <span style={{ flex:1,fontWeight:tab===item.id?800:500,color:tab===item.id?C.primary:C.textSub,fontSize:14,whiteSpace:"nowrap" }}>{item.label}</span>
+                  {item.badge>0&&<span style={{ background:C.primary,color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:11,fontWeight:800,flexShrink:0 }}>{item.badge}</span>}
+                </>}
+              </button>
+            ))}
+          </nav>
+
+          {/* Profile match + logout */}
+          {sidebar ? (
+            <div style={{ padding:"11px 13px",borderTop:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:10,color:C.textMuted,fontWeight:700,marginBottom:5,letterSpacing:".06em" }}>PROFILE MATCH</div>
+              <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:9 }}>
+                <div style={{ flex:1,height:5,background:C.border,borderRadius:4 }}><div style={{ height:"100%",background:"linear-gradient(90deg,#4f8ef7,#22c55e)",borderRadius:4,width:`${Math.min(100,Math.round((uSkills.length/11)*100))}%`,transition:"width .8s" }}/></div>
+                <span style={{ fontSize:12,fontWeight:900,color:C.success }}>{Math.min(100,Math.round((uSkills.length/11)*100))}%</span>
+              </div>
+              <button onClick={doLogout} style={{ width:"100%",background:"#ef444418",border:"1px solid #ef444433",borderRadius:8,padding:"7px",color:C.danger,fontWeight:800,cursor:"pointer",fontSize:12 }}>🚪 Sign Out</button>
+            </div>
+          ) : (
+            <button onClick={doLogout} title="Sign Out" style={{ background:"none",border:"none",color:C.danger,cursor:"pointer",fontSize:18,padding:"13px 0",flexShrink:0 }}>🚪</button>
+          )}
+        </aside>
+
+        {/* MAIN */}
+        <main style={{ flex:1,overflowY:"auto",padding:"22px 24px",minWidth:0 }}>
+
+          {/* INBOX */}
+          {tab==="inbox"&&(
+            <div>
+              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16,flexWrap:"wrap",gap:10 }}>
+                <div>
+                  <h1 style={{ fontSize:23,fontWeight:900,margin:0,background:"linear-gradient(135deg,#f0f4ff,#8899bb)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>Job Inbox</h1>
+                  <p style={{ color:C.textMuted,margin:"3px 0 0",fontSize:14 }}>{filtered.length} jobs · {filtered.filter(j=>j.isNew).length} new today</p>
+                </div>
+                <div style={{ display:"flex",gap:5 }}>
+                  {["10m","24h","3d","7d"].map(tf=>(
+                    <button key={tf} style={{ background:C.card,color:C.textSub,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 11px",fontSize:12,fontWeight:600,cursor:"pointer" }}>Last {tf}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ position:"relative",marginBottom:12 }}>
+                <span style={{ position:"absolute",left:13,top:"50%",transform:"translateY(-50%)",color:C.textMuted,fontSize:16 }}>🔍</span>
+                <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search role, company, skill, city... e.g. 'Cypress Hyderabad'" style={{ width:"100%",background:C.card,border:`1px solid ${C.border}`,borderRadius:11,padding:"11px 13px 11px 38px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit",boxSizing:"border-box" }}/>
+              </div>
+
+              <div style={{ display:"flex",gap:9,marginBottom:16,flexWrap:"wrap" }}>
+                {[[fLoc,setFLoc,locs,"📍 Location"],[fPlat,setFPlat,plats,"🌐 Platform"],[fComp,setFComp,comps,"⚡ Competition"]].map(([v,sv,opts,lbl],i)=>(
+                  <select key={i} value={v} onChange={e=>sv(e.target.value)} style={{ background:C.card,border:`1px solid ${v==="All"?C.border:C.primary}`,borderRadius:9,padding:"8px 13px",color:v==="All"?C.textSub:C.primary,fontSize:13,outline:"none",cursor:"pointer",fontWeight:600 }}>
+                    {opts.map(o=><option key={o}>{o==="All"?`${lbl} (All)`:o}</option>)}
+                  </select>
+                ))}
+                {(fLoc!=="All"||fPlat!=="All"||fComp!=="All"||search)&&<button onClick={()=>{setFLoc("All");setFPlat("All");setFComp("All");setSearch("");}} style={{ background:"#ef444418",border:"1px solid #ef444433",borderRadius:9,padding:"8px 13px",color:C.danger,fontSize:13,fontWeight:700,cursor:"pointer" }}>✕ Clear</button>}
+              </div>
+
+              <div style={{ display:"flex",flexDirection:"column",gap:9 }}>
+                {filtered.map(job=><JobCard key={job.id} job={job} saved={savedIds.has(job.id)} applied={appliedIds.has(job.id)} onSave={doSave} onApply={doApply} onView={setSel} uSkills={uSkills}/>)}
+                {!filtered.length&&(
+                  <div style={{ textAlign:"center",color:C.textMuted,padding:56 }}>
+                    <div style={{ fontSize:50,marginBottom:13 }}>📭</div>
+                    <div style={{ fontSize:17,fontWeight:800,color:C.textSub }}>No jobs found</div>
+                    <div style={{ fontSize:14,marginTop:5 }}>Try adjusting your search or filters</div>
+                    <button onClick={()=>{setFLoc("All");setFPlat("All");setFComp("All");setSearch("");}} style={{ marginTop:13,background:C.primaryGlow,border:`1px solid ${C.primary}44`,borderRadius:10,padding:"8px 18px",color:C.primary,fontWeight:700,cursor:"pointer" }}>Clear Filters</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* SAVED */}
+          {tab==="saved"&&(
+            <div>
+              <h1 style={{ fontSize:23,fontWeight:900,margin:"0 0 4px",background:"linear-gradient(135deg,#f0f4ff,#8899bb)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>Saved Jobs</h1>
+              <p style={{ color:C.textMuted,margin:"0 0 16px",fontSize:14 }}>{savedIds.size} jobs saved for later</p>
+              <div style={{ display:"flex",flexDirection:"column",gap:9 }}>
+                {JOBS.filter(j=>savedIds.has(j.id)).length===0 ? (
+                  <div style={{ textAlign:"center",color:C.textMuted,padding:56 }}>
+                    <div style={{ fontSize:50,marginBottom:13 }}>⭐</div>
+                    <div style={{ fontSize:17,fontWeight:800,color:C.textSub }}>No saved jobs yet</div>
+                    <div style={{ fontSize:14,marginTop:5 }}>Tap ☆ Save on any job in the Inbox</div>
+                    <button onClick={()=>setTab("inbox")} style={{ marginTop:13,background:C.primaryGlow,border:`1px solid ${C.primary}44`,borderRadius:10,padding:"8px 18px",color:C.primary,fontWeight:700,cursor:"pointer" }}>Go to Inbox →</button>
+                  </div>
+                ) : JOBS.filter(j=>savedIds.has(j.id)).map(job=><JobCard key={job.id} job={job} saved applied={appliedIds.has(job.id)} onSave={doSave} onApply={doApply} onView={setSel} uSkills={uSkills}/>)}
+              </div>
+            </div>
+          )}
+
+          {/* TRACKER */}
+          {tab==="tracker"&&(
+            <div>
+              <h1 style={{ fontSize:23,fontWeight:900,margin:"0 0 4px",background:"linear-gradient(135deg,#f0f4ff,#8899bb)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>Application Tracker</h1>
+              <p style={{ color:C.textMuted,margin:"0 0 16px",fontSize:14 }}>Drag & drop cards to update application status</p>
+              <div style={{ display:"flex",gap:11,marginBottom:20,flexWrap:"wrap" }}>
+                {[["📨","Total",st.total,C.primary],["✉️","Applied",st.applied,C.success],["🗓️","Interviews",st.interviews,C.warn],["🎉","Offers",st.offers,"#ec4899"]].map(([ico,lbl,val,col])=>(
+                  <div key={lbl} style={{ background:C.card,border:`1px solid ${C.border}`,borderRadius:13,padding:"13px 17px",flex:1,minWidth:120 }}>
+                    <div style={{ fontSize:20 }}>{ico}</div>
+                    <div style={{ fontSize:25,fontWeight:900,color:col,marginTop:3 }}>{val}</div>
+                    <div style={{ fontSize:12,color:C.textMuted,fontWeight:700 }}>{lbl}</div>
+                  </div>
+                ))}
+              </div>
+              <KanbanBoard apps={apps} setApps={setApps}/>
+            </div>
+          )}
+
+          {tab==="ai"&&<AIChat user={user}/>}
+
+          {/* ALERTS */}
+          {tab==="alerts"&&(
+            <div>
+              <h1 style={{ fontSize:23,fontWeight:900,margin:"0 0 4px",background:"linear-gradient(135deg,#f0f4ff,#8899bb)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>Smart Alerts</h1>
+              <p style={{ color:C.textMuted,margin:"0 0 18px",fontSize:14 }}>Real-time job notifications matching your profile</p>
+              <div style={{ display:"flex",flexDirection:"column",gap:9,maxWidth:620,marginBottom:22 }}>
+                {[
+                  { dot:"🟢",time:"12 min ago",  msg:`New Cypress job at PhonePe — Bangalore · 96% match for ${user.name.split(" ")[0]}`,   unread:true },
+                  { dot:"🟢",time:"45 min ago",  msg:"BrowserStack SDET role — Mumbai · Top match this week!",                                unread:true },
+                  { dot:"🟢",time:"2 hrs ago",   msg:"Razorpay API Test Engineer — application was viewed by recruiter",                     unread:true },
+                  { dot:"⚪",time:"5 hrs ago",   msg:"17 new QA fresher jobs added to inbox today",                                          unread:false },
+                  { dot:"⚪",time:"1 day ago",   msg:"Freshworks QA automation role — Chennai · 89% match",                                  unread:false },
+                  { dot:"⚪",time:"2 days ago",  msg:"3 Postman API testing roles available in Bangalore",                                   unread:false },
+                ].map((a,i)=>(
+                  <div key={i} style={{ background:a.unread?C.card:C.bg,border:`1px solid ${a.unread?C.primary+"44":C.border}`,borderRadius:12,padding:"12px 15px",display:"flex",gap:11,alignItems:"flex-start" }}>
+                    <span style={{ fontSize:10,marginTop:5 }}>{a.dot}</span>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:14,color:a.unread?C.text:C.textSub,fontWeight:a.unread?700:400 }}>{a.msg}</div>
+                      <div style={{ fontSize:12,color:C.textMuted,marginTop:3 }}>{a.time}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:18,maxWidth:480 }}>
+                <div style={{ fontWeight:900,fontSize:15,marginBottom:14,color:C.text }}>🔔 Your Active Alerts</div>
+                {[["Cypress Automation Tester","Hyderabad, Bangalore"],["QA Engineer Fresher","All India"],["SDET / Automation","Bangalore, Remote"]].map(([role,loc],i)=>(
+                  <div key={i} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${C.border}` }}>
+                    <div><div style={{ fontWeight:700,color:C.text,fontSize:14 }}>{role}</div><div style={{ fontSize:12,color:C.textMuted }}>{loc}</div></div>
+                    <Bdg color={C.success}>Active</Bdg>
+                  </div>
+                ))}
+                <button style={{ marginTop:13,background:C.gradient,border:"none",borderRadius:10,padding:"9px 18px",color:"#fff",fontWeight:800,cursor:"pointer",fontSize:13 }}>+ Add Alert</button>
+              </div>
+            </div>
+          )}
+
+          {tab==="profile"&&<ProfilePage user={user} onUpdate={setUser} onLogout={doLogout}/>}
+        </main>
+      </div>
+
+      {selJob&&<JobModal job={selJob} onClose={()=>setSel(null)} onApply={doApply} saved={savedIds.has(selJob.id)} onSave={doSave} applied={appliedIds.has(selJob.id)} uSkills={uSkills}/>}
+      {toast&&<Toast msg={toast.msg} type={toast.type} onDone={()=>setToast(null)}/>}
+      <style>{`*{box-sizing:border-box} @keyframes jbspin{to{transform:rotate(360deg)}} @keyframes jbup{from{transform:translateY(18px);opacity:0}to{transform:translateY(0);opacity:1}} ::-webkit-scrollbar{width:5px;height:5px} ::-webkit-scrollbar-thumb{background:#1a2440;border-radius:10px} ::-webkit-scrollbar-track{background:transparent}`}</style>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════
+// ROOT — AUTH GATE
+// ═══════════════════════════════════════════════════
+export default function App() {
+  const [user,setUser]=useState(null);
+  const [ready,setReady]=useState(false);
+
+  useEffect(()=>{
+    seedDemo();
+    const s=getSession();
+    if(s) setUser(s);
+    setReady(true);
+  },[]);
+
+  if(!ready) return (
+    <div style={{ minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontSize:48,marginBottom:14 }}>📬</div>
+        <div style={{ fontWeight:900,fontSize:26,background:C.gradient,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>JobBox</div>
+        <div style={{ color:C.textMuted,marginTop:8,fontSize:14 }}>Loading your job inbox...</div>
+      </div>
+    </div>
+  );
+
+  if(!user) return <AuthScreen onLogin={u=>setUser(u)}/>;
+  return <MainApp user={user} onLogout={()=>{ clearSes(); setUser(null); }}/>;
+}
